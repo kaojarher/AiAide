@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能助手</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #334155;
+            --primary-blue: #0084ff;
+            --standby-color: #64748b;
+            --listening-color: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            margin: 0;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 頂部狀態列 */
+        .status-header {
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(5px);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* 設定按鈕 */
+        .settings-btn {
+            background: none;
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            color: #64748b;
+        }
+        .settings-btn:hover {
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+            transform: rotate(30deg);
+        }
+
+        /* 中央：表情區 */
+        .mascot-container {
+            flex: 1.5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .emoji-face {
+            font-size: 10rem;
+            user-select: none;
+            transition: transform 0.3s ease;
+        }
+
+        /* 下方：控制面板 */
+        .interaction-panel {
+            flex: 2;
+            background: white;
+            border-top-left-radius: 40px;
+            border-top-right-radius: 40px;
+            box-shadow: 0 -15px 35px rgba(0,0,0,0.08);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 對話顯示區 */
+        .chat-display {
+            width: 100%;
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: var(--text-color);
+            min-height: 80px;
+            max-height: 120px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        /* 文字輸入區 */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            resize: none;
+            height: 55px;
+            font-family: inherit;
+        }
+
+        .btn-send-text {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 0 25px;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        /* 底部巨型語音按鈕 */
+        .voice-btn-container {
+            display: flex;
+            justify-content: center;
+            padding-bottom: 10px;
+        }
+
+        .main-btn {
+            width: 90%;
+            max-width: 450px;
+            padding: 22px;
+            border: none;
+            border-radius: 25px;
+            font-size: 2rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .btn-standby { background: #f1f5f9; color: var(--standby-color); }
+        .btn-listening { background: var(--listening-color); color: white; }
+
+        #battery-info { font-weight: bold; color: #22c55e; }
+
+        /* ==================== 設定面板 Overlay ==================== */
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            display: flex;
+            align-items: flex-end;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .settings-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .settings-panel {
+            width: 100%;
+            background: #fff;
+            border-top-left-radius: 32px;
+            border-top-right-radius: 32px;
+            padding: 28px 28px 40px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.34,1.4,0.64,1);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+        .settings-overlay.open .settings-panel {
+            transform: translateY(0);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .panel-header h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #1e293b;
+        }
+        .close-btn {
+            background: #f1f5f9;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            transition: background 0.2s;
+        }
+        .close-btn:hover { background: #e2e8f0; }
+
+        /* 語音選擇器 */
+        .setting-section {
+            margin-bottom: 24px;
+        }
+        .setting-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+
+        .voice-select {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: #334155;
+            background: #f8fafc;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .voice-select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+        }
+
+        /* 滑桿樣式 */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .slider-label-end {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            width: 30px;
+            text-align: center;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 10px;
+            background: #e2e8f0;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(0,132,255,0.35);
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+
+        .slider-value-badge {
+            background: var(--primary-blue);
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-radius: 8px;
+            padding: 3px 9px;
+            min-width: 42px;
+            text-align: center;
+        }
+
+        /* 試聽 & 套用按鈕 */
+        .panel-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .btn-preview {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid var(--primary-blue);
+            border-radius: 16px;
+            background: white;
+            color: var(--primary-blue);
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-preview:hover { background: #eff6ff; }
+        .btn-apply {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 16px;
+            background: var(--primary-blue);
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(0,132,255,0.3);
+            transition: all 0.2s;
+        }
+        .btn-apply:hover { background: #006edc; }
+
+        /* 目前設定小標籤 */
+        .current-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            border: 1.5px solid #86efac;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            color: #16a34a;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="status-header">
+        <div id="datetime">📅 加載中...</div>
+        <div class="header-right">
+            <div id="battery-info">🔋 電量: --%</div>
+            <button class="settings-btn" onclick="openSettings()" title="語音設定">⚙️</button>
+        </div>
+    </div>
+
+    <div class="mascot-container">
+        <div id="mascot" class="emoji-face">😊</div>
+    </div>
+
+    <div class="interaction-panel">
+        <div id="text-output" class="chat-display">等待指令中...</div>
+        
+        <div class="input-group">
+            <textarea id="user-text-input" placeholder="輸入訊息並按 Enter 送出..." onkeydown="checkEnter(event)"></textarea>
+            <button class="btn-send-text" onclick="handleTextSend()">🚀</button>
+        </div>
+
+        <div class="voice-btn-container">
+            <button id="action-btn" class="main-btn btn-standby" onclick="toggleVoice()">
+                <span id="btn-icon">🎤</span>
+                <span id="btn-text">待命</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 設定面板 ==================== -->
+    <div class="settings-overlay" id="settings-overlay" onclick="overlayClick(event)">
+        <div class="settings-panel" id="settings-panel">
+            <div class="panel-header">
+                <h2>🔊 語音設定</h2>
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+
+            <!-- 語音選擇 -->
+            <div class="setting-section">
+                <div class="setting-label">🗣 語音角色</div>
+                <select class="voice-select" id="voice-select">
+                    <option value="">載入中...</option>
+                </select>
+                <div class="current-badge" id="current-voice-badge">
+                    ✅ 目前使用：載入中
+                </div>
+            </div>
+
+            <!-- 語速 -->
+            <div class="setting-section">
+                <div class="setting-label">⚡ 語速</div>
+                <div class="slider-row">
+                    <span class="slider-label-end">慢</span>
+                    <input type="range" id="rate-slider" min="0.5" max="2.0" step="0.1" value="1.0"
+                           oninput="updateBadge('rate-badge', this.value, 'x')">
+                    <span class="slider-label-end">快</span>
+                    <span class="slider-value-badge" id="rate-badge">1.0x</span>
+                </div>
+            </div>
+
+            <!-- 音調 -->
+            <div class="setting-section">
+                <div class="setting-label">🎵 音調</div>
+                <div class="slider-row">
+                    <span class="slider-label-end">低</span>
+                    <input type="range" id="pitch-slider" min="0.5" max="2.0" step="0.1" value="1.0"
+                           oninput="updateBadge('pitch-badge', this.value, '')">
+                    <span class="slider-label-end">高</span>
+                    <span class="slider-value-badge" id="pitch-badge">1.0</span>
+                </div>
+            </div>
+
+            <!-- 音量 -->
+            <div class="setting-section">
+                <div class="setting-label">🔈 音量</div>
+                <div class="slider-row">
+                    <span class="slider-label-end">靜</span>
+                    <input type="range" id="volume-slider" min="0" max="1.0" step="0.05" value="1.0"
+                           oninput="updateBadge('volume-badge', Math.round(this.value*100), '%')">
+                    <span class="slider-label-end">大</span>
+                    <span class="slider-value-badge" id="volume-badge">100%</span>
+                </div>
+            </div>
+
+            <div class="panel-actions">
+                <button class="btn-preview" onclick="previewVoice()">▶ 試聽</button>
+                <button class="btn-apply" onclick="applyAndClose()">✅ 套用</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心系統設定 ---
+        const SYSTEM_PROMPT = `你是一位開朗且熱情的 AI 助手。請遵循：先優化指令、後查核事實、再繁體中文產出內容。語氣專業且正向。`;
+        let engineWindow = null;
+        let emojiAnimationInterval = null;
+
+        // --- 語音設定狀態 ---
+        let voiceSettings = {
+            voice: null,       // SpeechSynthesisVoice 物件
+            voiceURI: '',      // 儲存 URI 便於比對
+            rate: 1.0,
+            pitch: 1.0,
+            volume: 1.0
+        };
+
+        // --- 狀態更新 (時間與電量) ---
+        function updateSystemStatus() {
+            const now = new Date();
+            document.getElementById('datetime').innerText = `📅 ${now.toLocaleDateString()} ⏰ ${now.toTimeString().substring(0, 5)}`;
+            if (navigator.getBattery) {
+                navigator.getBattery().then(b => {
+                    document.getElementById('battery-info').innerText = `🔋 電量: ${Math.floor(b.level * 100)}%`;
+                });
+            }
+        }
+        setInterval(updateSystemStatus, 1000);
+        updateSystemStatus();
+
+        // --- 鍵盤監聽 ---
+        function checkEnter(event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                handleTextSend();
+            }
+        }
+
+        // --- AI 引擎連線 ---
+        function handleTextSend() {
+            const input = document.getElementById('user-text-input');
+            const output = document.getElementById('text-output');
+            const mascot = document.getElementById('mascot');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            output.innerText = "正在處理您的請求...";
+            mascot.innerText = "⌛";
+            input.value = '';
+
+            const engineUrl = `puter-ai-tool.html?autorun=1&prompt=${encodeURIComponent(text)}&system=${encodeURIComponent(SYSTEM_PROMPT)}`;
+            engineWindow = window.open(engineUrl, 'AI_Engine_Service', 'width=10,height=10,left=-100,top=-100');
+
+            const messageHandler = function(event) {
+                if (event.data && event.data.type === 'AI_RESULT_COMPLETE') {
+                    const finalResult = event.data.content;
+                    output.innerText = finalResult;
+                    speak(finalResult);
+                    if (engineWindow) engineWindow.close();
+                    window.removeEventListener('message', messageHandler);
+                }
+            };
+            window.addEventListener('message', messageHandler);
+        }
+
+        // --- 語音輸出 (套用設定) ---
+        function speak(text) {
+            const synth = window.speechSynthesis;
+            let cleanText = text
+                .replace(/```[\s\S]*?```/g, '（此處有程式碼，已為您跳過）')
+                .replace(/`[^`]+`/g, '')
+                .replace(/[#*_{}[\]()<>\\/]/g, '')
+                .replace(/https?:\/\/\S+/g, '（相關網址）')
+                .trim();
+
+            if (!cleanText) return;
+
+            const utter = new SpeechSynthesisUtterance(cleanText);
+            const mascot = document.getElementById('mascot');
+            utter.lang = 'zh-TW';
+
+            // 套用語音設定
+            if (voiceSettings.voice) utter.voice = voiceSettings.voice;
+            utter.rate   = voiceSettings.rate;
+            utter.pitch  = voiceSettings.pitch;
+            utter.volume = voiceSettings.volume;
+
+            utter.onstart = () => {
+                let toggle = true;
+                emojiAnimationInterval = setInterval(() => {
+                    mascot.innerText = toggle ? "😄" : "😊";
+                    toggle = !toggle;
+                }, 300);
+            };
+            utter.onend = () => {
+                if (emojiAnimationInterval) {
+                    clearInterval(emojiAnimationInterval);
+                    emojiAnimationInterval = null;
+                }
+                mascot.innerText = "😊";
+            };
+
+            synth.speak(utter);
+        }
+
+        // --- 語音識別功能 ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-TW';
+            recognition.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                document.getElementById('user-text-input').value = text;
+                handleTextSend();
+            };
+            recognition.onend = () => { if(isListening) stopVoice(); };
+        }
+
+        function toggleVoice() { isListening ? stopVoice() : startVoice(); }
+        function startVoice() {
+            if (!recognition) return alert("載具不支援語音識別");
+            isListening = true;
+            recognition.start();
+            document.getElementById('action-btn').className = 'main-btn btn-listening';
+            document.getElementById('btn-text').innerText = '聆聽';
+            document.getElementById('mascot').innerText = '😌';
+        }
+        function stopVoice() {
+            isListening = false;
+            if (recognition) recognition.stop();
+            document.getElementById('action-btn').className = 'main-btn btn-standby';
+            document.getElementById('btn-text').innerText = '待命';
+            document.getElementById('mascot').innerText = '😊';
+        }
+
+        // ==================== 設定面板邏輯 ====================
+
+        function openSettings() {
+            populateVoices();
+            // 同步滑桿到目前設定
+            document.getElementById('rate-slider').value   = voiceSettings.rate;
+            document.getElementById('pitch-slider').value  = voiceSettings.pitch;
+            document.getElementById('volume-slider').value = voiceSettings.volume;
+            updateBadge('rate-badge',   voiceSettings.rate,                       'x');
+            updateBadge('pitch-badge',  voiceSettings.pitch,                      '');
+            updateBadge('volume-badge', Math.round(voiceSettings.volume * 100),   '%');
+            document.getElementById('settings-overlay').classList.add('open');
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-overlay').classList.remove('open');
+        }
+
+        function overlayClick(e) {
+            if (e.target === document.getElementById('settings-overlay')) closeSettings();
+        }
+
+        function updateBadge(id, val, unit) {
+            document.getElementById(id).innerText = parseFloat(val).toFixed(1).replace(/\.0$/, '') + unit;
+        }
+
+        // 填充語音清單
+        function populateVoices() {
+            const sel = document.getElementById('voice-select');
+            const voices = speechSynthesis.getVoices();
+
+            if (voices.length === 0) {
+                // 部分瀏覽器需等待 onvoiceschanged
+                speechSynthesis.onvoiceschanged = () => populateVoices();
+                return;
+            }
+
+            sel.innerHTML = '';
+
+            // 優先排列中文語音
+            const zhVoices = voices.filter(v => v.lang.startsWith('zh'));
+            const otherVoices = voices.filter(v => !v.lang.startsWith('zh'));
+            const sorted = [...zhVoices, ...otherVoices];
+
+            sorted.forEach((voice, i) => {
+                const opt = document.createElement('option');
+                opt.value = voice.voiceURI;
+                opt.textContent = `${voice.name} (${voice.lang})`;
+                if (voice.voiceURI === voiceSettings.voiceURI) opt.selected = true;
+                sel.appendChild(opt);
+            });
+
+            // 若尚未選擇，預設選第一個中文語音
+            if (!voiceSettings.voiceURI && zhVoices.length > 0) {
+                sel.value = zhVoices[0].voiceURI;
+                updateCurrentBadge(zhVoices[0].name);
+            } else {
+                const found = sorted.find(v => v.voiceURI === voiceSettings.voiceURI);
+                if (found) updateCurrentBadge(found.name);
+            }
+        }
+
+        function updateCurrentBadge(name) {
+            document.getElementById('current-voice-badge').innerHTML = `✅ 目前使用：${name}`;
+        }
+
+        // 試聽
+        function previewVoice() {
+            window.speechSynthesis.cancel();
+
+            const sel = document.getElementById('voice-select');
+            const voices = speechSynthesis.getVoices();
+            const selectedVoice = voices.find(v => v.voiceURI === sel.value) || null;
+
+            const utter = new SpeechSynthesisUtterance('您好！這是語音設定的試聽範例，請確認音調與語速是否符合您的喜好。');
+            utter.lang   = 'zh-TW';
+            if (selectedVoice) utter.voice = selectedVoice;
+            utter.rate   = parseFloat(document.getElementById('rate-slider').value);
+            utter.pitch  = parseFloat(document.getElementById('pitch-slider').value);
+            utter.volume = parseFloat(document.getElementById('volume-slider').value);
+
+            window.speechSynthesis.speak(utter);
+        }
+
+        // 套用並關閉
+        function applyAndClose() {
+            window.speechSynthesis.cancel();
+
+            const sel = document.getElementById('voice-select');
+            const voices = speechSynthesis.getVoices();
+            const selectedVoice = voices.find(v => v.voiceURI === sel.value) || null;
+
+            voiceSettings.voice    = selectedVoice;
+            voiceSettings.voiceURI = sel.value;
+            voiceSettings.rate     = parseFloat(document.getElementById('rate-slider').value);
+            voiceSettings.pitch    = parseFloat(document.getElementById('pitch-slider').value);
+            voiceSettings.volume   = parseFloat(document.getElementById('volume-slider').value);
+
+            if (selectedVoice) updateCurrentBadge(selectedVoice.name);
+            closeSettings();
+        }
+
+        // 頁面載入時預載語音
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.onvoiceschanged = () => {}; // 觸發載入
+            speechSynthesis.getVoices();
+        }
+    </script>
+</body>
+</html>
